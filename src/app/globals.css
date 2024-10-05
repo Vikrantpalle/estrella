@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Rubik+Mono+One&display=swap');
 
 :root {
   --background: #ffffff;
@@ -14,10 +15,17 @@
   }
 }
 
+html {
+  width: 100vw;
+  height: 100vh;
+}
+
 body {
+  height: 100%;
+  width: 100%;
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Rubik Mono One", monospace;
 }
 
 @layer utilities {
