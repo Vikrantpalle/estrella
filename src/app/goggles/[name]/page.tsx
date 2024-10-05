@@ -41,8 +41,7 @@ export default function Goggles({params}: {params: {name: string}}) {
     const [data, setData] = useState<drawContext | null>(null);
 
     useEffect(() => {
-        console.log(decodeURIComponent(params.name));
-        fetch('/planet_data/'+decodeURIComponent(params.name)+'.json')
+        fetch('https://storage.googleapis.com/exoplanet_stars/'+params.name+'.json')
         .then(res => res.json())
         .then(dat => {
             const position = new THREE.Float32BufferAttribute(dat.flatMap((val: any) => [val[1], val[2], val[3]]), 3);
