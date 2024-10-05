@@ -1,9 +1,9 @@
 'use client';
-import { Canvas, useFrame, ThreeElements, useThree, useLoader } from '@react-three/fiber';
-import { FirstPersonControls, OrbitControls, PointerLockControls } from '@react-three/drei';
-import { Bloom, BrightnessContrast, EffectComposer, HueSaturation, ToneMapping } from '@react-three/postprocessing';
+import { Canvas, useLoader } from '@react-three/fiber';
+import { PointerLockControls } from '@react-three/drei';
+import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import React, { useEffect, useReducer, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 
 function interpolate(x: number) {
@@ -44,11 +44,11 @@ export default function Goggles({params}: {params: {name: string}}) {
         fetch('https://storage.googleapis.com/exoplanet_stars/'+params.name+'.json')
         .then(res => res.json())
         .then(dat => {
-            const position = new THREE.Float32BufferAttribute(dat.flatMap((val: any) => [val[1], val[2], val[3]]), 3);
-            const size = new THREE.Float32BufferAttribute(dat.map((val: any) => interpolate(-val[4])), 1);      
+            const position = new THREE.Float32BufferAttribute(dat.flatMap((val: number[]) => [val[1], val[2], val[3]]), 3);
+            const size = new THREE.Float32BufferAttribute(dat.map((val: number[]) => interpolate(-val[4])), 1);      
             setData({position, size});
         })
-      }, []);
+      }, [params.name]);
     
     return (
     data && <Canvas camera={{ position: [0, 0, 0] }}>

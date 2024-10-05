@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useReducer, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import Link from "next/link";
 
 import exoPlanets from '@/../public/exoplanets.json';
