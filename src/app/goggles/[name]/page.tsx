@@ -1,9 +1,10 @@
 'use client';
-import { Canvas, useLoader } from '@react-three/fiber';
-import { PointerLockControls } from '@react-three/drei';
+import { Canvas, useLoader, Vector3 } from '@react-three/fiber';
+import { Line, OrbitControls, Point, Points } from '@react-three/drei';
 import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 
 function interpolate(x: number) {
@@ -23,7 +24,7 @@ varying float b;
 void main() {
   b = size;
   gl_PointSize = size;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(normalize(position), 1.);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(normalize(position)*100., 1.);
 }
 `
 
@@ -36,43 +37,98 @@ void main() {
 }
 `
 
+enum Modes {
+  DRAWING = "DRAWING",
+  VIEWING = "VIEWING",
+  MENU = "MENU"
+}
+
+const helpText = {
+  "DRAWING": "select pairs of stars by long pressing to draw lines between them; press 'm' for menu, 'v' for view mode",
+  "VIEWING": "360 view of star map; press 'm' for menu, 'd' for draw mode",
+  "MENU": "redirecting to menu"
+}
+
 export default function Goggles({params}: {params: {name: string}}) {
     const pointTexture = useLoader(THREE.TextureLoader, '/spark1.png'); 
-    const [data, setData] = useState<drawContext | null>(null);
+    const [starPoints, setStarPoints] = useState<number[][] | null>(null);
+    const [points, setPoints] = useState<Vector3[]>([]);
+    const [selectedPoint, setSelectedPoint] = useState<Vector3 | null>(null);
+    const [mode, setMode] = useState<Modes>(Modes.VIEWING);
+    const router = useRouter();
 
     useEffect(() => {
         fetch('https://exoplanet_stars.storage.googleapis.com/'+params.name+'.json')
         .then(res => res.json())
-        .then(dat => {
-            const position = new THREE.Float32BufferAttribute(dat.flatMap((val: number[]) => [val[1], val[2], val[3]]), 3);
-            const size = new THREE.Float32BufferAttribute(dat.map((val: number[]) => interpolate(-val[4])), 1);      
-            setData({position, size});
-        })
+        .then(data => setStarPoints(data));
       }, [params.name]);
+
+    useEffect(() => {
+      if (mode === Modes.DRAWING) setSelectedPoint(null);
+    }, [mode])
+
+    const handleStarClick = (ev: THREE.Object3D<THREE.Object3DEventMap>) => {
+      if (mode !== Modes.DRAWING) return;
+      if (!selectedPoint) setSelectedPoint(ev.position.normalize());
+      else {
+        const newPoints = points.concat(...[selectedPoint, ev.position.normalize()]);
+        setPoints(newPoints)
+        setSelectedPoint(null);
+      }
+    }
+
+    const handleKey = (ev: KeyboardEvent) => {
+      switch(ev.key) {
+        case "d":
+          setMode(Modes.DRAWING)
+          break
+        case "v":
+          setMode(Modes.VIEWING)
+          break
+        case "m":
+          router.push('/')
+      }
+    }
+
+    useEffect(() => {
+      window.addEventListener('keydown', handleKey);
+
+      return () => {
+        window.removeEventListener('keydown', handleKey);
+      }
+    })
     
     return (
-    data && <Canvas camera={{ position: [0, 0, 0] }}>
-        <PointerLockControls />
-        <EffectComposer>
-          <Bloom mipmapBlur luminanceThreshold={0.4} intensity={7}  />
-          <ToneMapping />
-        </EffectComposer>
-        <points>
-        <bufferGeometry>
-          <bufferAttribute attach={"attributes-position"} {...data.position}/>
-          <bufferAttribute attach={"attributes-size"} {...data.size}/>
-        </bufferGeometry>
-        <shaderMaterial 
-          transparent={true}
-          depthTest={false}
-          uniforms = {
-            {pointTexture: { value: pointTexture }}
-          }
-          blending={THREE.AdditiveBlending}
-          vertexShader={VERTEX_SHADER}
-          fragmentShader={FRAGMENT_SHADER}
-        />
-      </points>
-    </Canvas>
+      <div className='h-full w-full'>
+        <div className='absolute bottom-0 w-full text-center'>{helpText[mode]}</div>
+        {starPoints && <Canvas camera={{ position: [0, 0, 0.01] }}>
+            <OrbitControls enabled={mode === Modes.VIEWING} enableZoom={false} enablePan={false} rotateSpeed={-0.35} maxPolarAngle={Math.PI/2} minPolarAngle={-Math.PI/2}/>
+            <EffectComposer>
+              <Bloom mipmapBlur luminanceThreshold={0.4} intensity={7}  />
+              <ToneMapping />
+            </EffectComposer>
+            <Line 
+              points={points}
+              color={'white'} 
+              lineWidth={1}
+              segments
+              onClick={(ev) => console.log(ev)}
+            />
+            <Points limit={55000}>
+              <shaderMaterial 
+                transparent={true}
+                depthTest={false}
+                uniforms = {
+                  {pointTexture: { value: pointTexture }}
+                }
+                blending={THREE.AdditiveBlending}
+                vertexShader={VERTEX_SHADER}
+                fragmentShader={FRAGMENT_SHADER}
+              />
+              {starPoints.map((row, idx) => <Point key={idx} userData={{source_id: row[0]}} position={[row[1], row[2], row[3]]} size={interpolate(-row[4])} onClick={(ev) => handleStarClick(ev.eventObject)}/>)}
+              {selectedPoint && <Point key="sel" position={selectedPoint} size={10} color="red" />}  
+            </Points>
+        </Canvas>}
+      </div>
     )
 }
